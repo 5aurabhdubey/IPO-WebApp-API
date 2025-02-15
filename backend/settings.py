@@ -1,23 +1,30 @@
 import os
+import environ
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
+# Initialize django-environ
+env = environ.Env()
+environ.Env.read_env()
+
+# Set DJANGO_SETTINGS_MODULE dynamically
+DJANGO_SETTINGS_MODULE = env("DJANGO_SETTINGS_MODULE", default="backend.settings")
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "True") == "True"  # Reads from .env, defaults to True
+DEBUG = env.bool("DEBUG", default=True)
 
 # Define allowed hosts (modify if deploying)
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["127.0.0.1", "localhost"])
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your-default-secret-key")
-
+SECRET_KEY = env("SECRET_KEY", default="your-default-secret-key")
 
 # API Keys (Securely loaded from .env)
 API_KEYS = {
-    "TWELVE_DATA": os.getenv("TWELVE_DATA_API_KEY"),
-    "FMP": os.getenv("FMP_API_KEY"),
-    "BRANDFETCH": os.getenv("BRANDFETCH_API_KEY"),
+    "TWELVE_DATA": env("TWELVE_DATA_API_KEY", default=""),
+    "FMP": env("FMP_API_KEY", default=""),
+    "BRANDFETCH": env("BRANDFETCH_API_KEY", default=""),
 }
 
 # Required Django settings
@@ -28,8 +35,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "rest_framework", 
-    "backend",           # Ensure Django REST Framework is installed
+    "rest_framework",  # Ensure Django REST Framework is installed
+    "backend",
 ]
 
 MIDDLEWARE = [
