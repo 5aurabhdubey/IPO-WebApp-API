@@ -26,6 +26,23 @@ class IPO_INFO(models.Model):
     current_return = models.CharField(max_length=100)
     rhp = models.CharField(max_length=100)
     drhp = models.CharField(max_length=100)
+class IPO(models.Model):
+    symbol = models.CharField(max_length=10,unique=True)
+    company_name = models.CharField(max_length=255)
+    listing_date = models.DateField()
+    ipo_price = models.DecimalField(max_digits=10,decimal_places=2)
+    current_market_price = models.DecimalField(max_digits=10, decimal_places=2,null=True,blank=True)
+
+class Transaction(models.Model):
+    #Relationship with Users model
+    user = models.ForeignKey(Users,on_delete=models.CASCADE)
+    #Relationship with IPO model
+    ipo = models.ForeignKey(IPO,on_delete=models.CASCADE)
+    #number of shares bought
+    quantity = models.IntegerField()
+    #Purchase price per shares
+    transaction_price = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.company_name
