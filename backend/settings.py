@@ -1,7 +1,7 @@
 import os
 import environ
 from dotenv import load_dotenv
-
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Load environment variables from .env file
 load_dotenv()
 
