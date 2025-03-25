@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static%}
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bluestock</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <style>
+    .container_test {
+      width: 80%;
+      max-width: 542px;
+      background-color: white;
+      padding: 40px;
+      /* Equivalent to p-10 (Tailwind's p-10 = 40px) */
+      padding-top: 56px;
+      /* Equivalent to pt-14 (Tailwind's pt-14 = 56px) */
+      border-radius: 8px;
+      /* Equivalent to rounded-md */
+      text-align: center;
+      margin: 0 auto;
+    }
+
+    .skeleton {
+      background: #e0e0e0;
+      border-radius: 4px;
+      animation: pulse 1.5s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    .avatar {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 20px;
+    }
+
+    .title-skeleton {
+      height: 20px;
+      width: 75%;
+      margin: 0 auto 20px;
+    }
+
+    .grid-skeleton {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 20px;
+      text-align: left;
+      margin-top: 30px;
+    }
+
+    .grid-item-skeleton {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .label-skeleton {
+      height: 15px;
+      width: 50%;
+    }
+
+    .value {
+      height: 25px;
+      width: 75%;
+    }
+
+    .buttons-skeleton {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .button-skeleton {
+      width: 100px;
+      height: 40px;
+      border-radius: 8px;
+    }
+
+    .loading_container {
+      width: 100%;
+      max-width: 1920px;
+      height: 100%;
+      margin: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* CSS */
+    .button-loading-data {
+      background-image: linear-gradient(92.88deg, #495eaa 9.16%, #5f49f1 43.89%, #5e23ff 64.72%);
+      border-radius: 8px;
+      border-style: none;
+      box-sizing: border-box;
+      color: #FFFFFF;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-family: "Inter UI", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      font-size: 24px;
+      font-weight: 500;
+      height: 4rem;
+      padding: 0 1.6rem;
+      text-align: center;
+      text-shadow: rgba(0, 0, 0, 0.25) 0 3px 8px;
+      transition: all .5s;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    .button-loading-data:hover {
+      box-shadow: rgba(80, 63, 205, 0.5) 0 1px 30px;
+      transition-duration: .1s;
+    }
+
+    @media (min-width: 768px) {
+      .button-loading-data {
+        padding: 0 2.6rem;
+      }
+    }
+
+    .button-13 {
+      background-color: #fff;
+      border: 1px solid #d5d9d9;
+      border-radius: 8px;
+      box-shadow: rgba(213, 217, 217, .5) 0 2px 5px 0;
+      box-sizing: border-box;
+      color: #0f1111;
+      cursor: pointer;
+      display: inline-block;
+      font-family: "Amazon Ember", sans-serif;
+      font-size: 13px;
+      line-height: 29px;
+      padding: 0 10px 0 11px;
+      position: relative;
+      text-align: center;
+      text-decoration: none;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      vertical-align: middle;
+      width: 100px;
+    }
+
+    .button-13:hover {
+      background-color: #f7fafa;
+    }
+
+    .button-13:focus {
+      border-color: #008296;
+      box-shadow: rgba(213, 217, 217, .5) 0 2px 5px 0;
+      outline: 0;
+    }
+
+    .filter_button {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .search {
+      width: 100%;
+      position: relative;
+      display: flex;
+    }
+
+    .searchTerm {
+      width: 100%;
+      border: 2px solid #5f49f1;
+      padding: 2px;
+      height: 20px;
+      border-radius: 5px 5px 5px 5px;
+      outline: none;
+      color: #9DBFAF;
+    }
+
+    .searchTerm:focus {
+      color: black;
+    }
+
+    .searchButton {
+      width: 40px;
+      height: 36px;
+      border: 1px solid #00B4CC;
+      background: #00B4CC;
+      text-align: center;
+      color: #fff;
+      border-radius: 0 5px 5px 0;
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    /*Resize the wrap to see the search bar change!*/
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <header class="header">
+      <div class="flex-container">
+        <a href="/" class="no-underline">
+          <div class="logo-container">
+            <img src="{% static 'image/logo.png' %}" alt="Bluestock Logo" class="logo-img">
+            <h1 class="logo-text">BLUESTOCK</h1>
+          </div>
+        </a>
+        <nav id="navbar">
+          <ul>
+            <li>
+              <button id="close-sidebar-button" onclick="closeSidebar()" aria-label="close sidebar">
+                <svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px"
+                  fill="#c9c9c9">
+                  <path
+                    d="m480-444.62-209.69 209.7q-7.23 7.23-17.5 7.42-10.27.19-17.89-7.42-7.61-7.62-7.61-17.7 0-10.07 7.61-17.69L444.62-480l-209.7-209.69q-7.23-7.23-7.42-17.5-.19-10.27 7.42-17.89 7.62-7.61 17.7-7.61 10.07 0 17.69 7.61L480-515.38l209.69-209.7q7.23-7.23 17.5-7.42 10.27-.19 17.89 7.42 7.61 7.62 7.61 17.7 0 10.07-7.61 17.69L515.38-480l209.7 209.69q7.23 7.23 7.42 17.5.19 10.27-7.42 17.89-7.62 7.61-17.7 7.61-10.07 0-17.69-7.61L480-444.62Z" />
+                </svg>
+              </button>
+            </li>
+            <li class="custom-button">
+              <a href="#" class="custom-link no-underline">
+                PRODUCTS
+              </a>
+            <li>
+            <li class="custom-button">
+              <a href="#" class="custom-link no-underline">
+                PRICING
+              </a>
+            </li>
+            <li class="custom-button">
+              <a href="#" class="custom-link no-underline">
+                COMMUNITY
+              </a>
+            </li>
+            <li class="custom-button">
+              <a href="#" class="custom-link no-underline">
+                MEDIA
+              </a>
+            </li>
+            <li class="custom-button">
+              <a href="#" class="custom-link no-underline">
+                SUPPORT
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <div id="overlay" onclick="closeSidebar()" aria-hidden="true"></div>
+
+
+      </div>
+
+      <div class="custom-container-2">
+        <div class="custom-container-3">
+          <button class="sign-in-btn">Sign in</button>
+          <button class="sign-up-btn">Sign up now</button>
+        </div>
+        <button class="icon-button hamburger" id="open-sidebar-button" onclick="openSidebar()" aria-label="open sidebar"
+          aria-expanded="false" aria-controls="navbar">
+          <img src="{% static 'image/Vector.svg' %}" alt="Icon_2" height="28" width="28">
+        </button>
+
+      </div>
+
+
+    </header>
+
+  </div>
+  <div class="main">
+
+    <div class="container2">
+      <div class="custom-nav">
+        <a href="#" class="custom-link-2 no-underline">Bluestack</a>
+        <span class="custom-span">></span>
+        <a href="#" class="custom-link-2 no-underline">IPO</a>
+        <span class="custom-span">></span>
+        <a href="#" class="custom-link-2 no-underline text-color">UPCOMING IPO</a>
+      </div>
+      <div class="desc_button_container">
+        <div class="ipo-container">
+          <h1 class="ipo-title">Upcoming IPO</h1>
+          <p class="ipo-description">
+            Companies that have filed for an IPO with SEBI. Few details might be disclosed by the companies later.
+          </p>
+        </div>
+
+      </div>
+      <div class="filter_button">
+        <!-- HTML !-->
+        <button class="button-13" role="button" id="Filter_listing">Open date</button>
+        <div class="wrap">
+          <div class="search">
+            <input type="text" class="searchTerm" placeholder="Search by compony name" id="search-bar">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-container">
+
+
+    </div>
+    <div class="loading_container" id="">
+      <button class="button-loading-data" role="button" id="load-more">Load more</button>
+
+    </div>
+
+    <div class="faq-container">
+      <div class=" faq">
+        <h1 class="faq-title">
+          Frequently Asked Questions?
+        </h1>
+        <p class="faq-description">
+          Find answers to common questions that come in your mind related to IPO.
+        </p>
+      </div>
+      <div class="accordion">
+        <div class="accordion-content">
+          <header class="acc-header">
+            <span class="accordion-content-title">
+              How to subscribe to an IPO?
+            </span>
+            <i class="fa-solid fa-plus icon-sizer "></i>
+          </header>
+          <!-- <p class="accordion-content-description"> -->
+          <ul class="accordion-content-description">
+            <li>
+              Step 1: Login to your respective service provider.
+            </li>
+            <li>
+              Step 2: Click on the IPO button.
+            </li>
+            <li>
+              Step 3: Select the IPO you want to bid and enter the relevant details.
+            </li>
+            <li>
+              Step 4: Your subscription will be completed once you make the payment or give permission.</li>
+            </li>
+          </ul>
+          <!-- </p> -->
+        </div>
+
+        <div class="accordion-content">
+          <header class="acc-header">
+            <span class="accordion-content-title">
+              How to subscribe to an IPO?
+            </span>
+            <i class="fa-solid fa-plus icon-sizer "></i>
+          </header>
+          <!-- <p class="accordion-content-description"> -->
+          <ul class="accordion-content-description">
+            <li>
+              Step 1: Login to your respective service provider.
+            </li>
+            <li>
+              Step 2: Click on the IPO button.
+            </li>
+            <li>
+              Step 3: Select the IPO you want to bid and enter the relevant details.
+            </li>
+            <li>
+              Step 4: Your subscription will be completed once you make the payment or give permission.</li>
+            </li>
+          </ul>
+          <!-- </p> -->
+        </div>
+
+        <div class="accordion-content">
+          <header class="acc-header">
+            <span class="accordion-content-title">
+              How to subscribe to an IPO?
+            </span>
+            <i class="fa-solid fa-plus icon-sizer "></i>
+          </header>
+          <!-- <p class="accordion-content-description"> -->
+          <ul class="accordion-content-description">
+            <li>
+              Step 1: Login to your respective service provider.
+            </li>
+            <li>
+              Step 2: Click on the IPO button.
+            </li>
+            <li>
+              Step 3: Select the IPO you want to bid and enter the relevant details.
+            </li>
+            <li>
+              Step 4: Your subscription will be completed once you make the payment or give permission.</li>
+            </li>
+          </ul>
+          <!-- </p> -->
+        </div>
+
+        <div class="accordion-content">
+          <header class="acc-header">
+            <span class="accordion-content-title">
+              How to subscribe to an IPO?
+            </span>
+            <i class="fa-solid fa-plus icon-sizer "></i>
+          </header>
+          <!-- <p class="accordion-content-description"> -->
+          <ul class="accordion-content-description">
+            <li>
+              Step 1: Login to your respective service provider.
+            </li>
+            <li>
+              Step 2: Click on the IPO button.
+            </li>
+            <li>
+              Step 3: Select the IPO you want to bid and enter the relevant details.
+            </li>
+            <li>
+              Step 4: Your subscription will be completed once you make the payment or give permission.</li>
+            </li>
+          </ul>
+          <!-- </p> -->
+        </div>
+
+        <div class="accordion-content">
+          <header class="acc-header">
+            <span class="accordion-content-title">
+              How to subscribe to an IPO?
+            </span>
+            <i class="fa-solid fa-plus icon-sizer "></i>
+          </header>
+          <!-- <p class="accordion-content-description"> -->
+          <ul class="accordion-content-description">
+            <li>
+              Step 1: Login to your respective service provider.
+            </li>
+            <li>
+              Step 2: Click on the IPO button.
+            </li>
+            <li>
+              Step 3: Select the IPO you want to bid and enter the relevant details.
+            </li>
+            <li>
+              Step 4: Your subscription will be completed once you make the payment or give permission.</li>
+            </li>
+          </ul>
+          <!-- </p> -->
+        </div>
+
+        <div class="accordion-content">
+          <header class="acc-header">
+            <span class="accordion-content-title">
+              How to subscribe to an IPO?
+            </span>
+            <i class="fa-solid fa-plus icon-sizer "></i>
+          </header>
+          <!-- <p class="accordion-content-description"> -->
+          <ul class="accordion-content-description">
+            <li>
+              Step 1: Login to your respective service provider.
+            </li>
+            <li>
+              Step 2: Click on the IPO button.
+            </li>
+            <li>
+              Step 3: Select the IPO you want to bid and enter the relevant details.
+            </li>
+            <li>
+              Step 4: Your subscription will be completed once you make the payment or give permission.</li>
+            </li>
+          </ul>
+          <!-- </p> -->
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <script src="{% static 'js/ipo_calendar.js' %}"></script>
+
+</body>
+
+</html>

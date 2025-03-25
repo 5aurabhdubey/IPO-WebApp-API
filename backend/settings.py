@@ -1,6 +1,8 @@
 import os
 import environ
 from dotenv import load_dotenv
+from pathlib import Path
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Load environment variables from .env file
 load_dotenv()
@@ -24,6 +26,7 @@ SECRET_KEY = env("SECRET_KEY", default="your-default-secret-key")
 API_KEYS = {
     "TWELVE_DATA": env("TWELVE_DATA_API_KEY", default=""),
     "FMP": env("FMP_API_KEY", default=""),
+    "PLG": env("PLG_API_KEY", default=""),
     "BRANDFETCH": env("BRANDFETCH_API_KEY", default=""),
 }
 
@@ -37,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",  # Ensure Django REST Framework is installed
     "backend",
+    'corsheaders',#To access api in different port
 ]
 
 MIDDLEWARE = [
@@ -47,6 +51,14 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'corsheaders.middleware.CorsMiddleware',#cors middleware
+    'django.middleware.common.CommonMiddleware',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',#Specify origins to access api data
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
 ]
 
 ROOT_URLCONF = "backend.urls"
@@ -78,4 +90,6 @@ DATABASES = {
 }
 
 # Static files (CSS, JavaScript, Images)
+BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR/ 'static']

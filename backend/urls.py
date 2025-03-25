@@ -13,4 +13,6 @@ urlpatterns = [
     path('api/admin/ipos/<int:pk>/update/', views.update_ipo, name='update_ipo'),
     path('api/admin/ipos/<int:pk>/delete/', views.delete_ipo, name='delete_ipo'),
     path('api/admin/ipos/<int:pk>/status/', views.update_ipo_status, name='update_ipo_status'),
+    path("ipo-calendar",views.ipo_calendar_frontend,name="ipo-calendar")
+
 ]

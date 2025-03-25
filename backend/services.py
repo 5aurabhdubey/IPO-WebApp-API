@@ -53,56 +53,60 @@ def safe_float(value):
 
 def fetch_ipo_calendar():
     """Fetch, validate, and return IPO data with error handling."""
-    api_key = settings.API_KEYS.get("FMP")
+    api_key = settings.API_KEYS.get("PLG")
     if not api_key:
-        logger.error("API Key missing for FMP")
+        logger.error("API Key missing for PLG")
         return {"error": "API Key missing for FMP"}
-
-    base_url = "https://financialmodelingprep.com/api/v3/ipo_calendar"
+    data = []
     detailed_ipo_list = []
-
+    base_url = f"https://api.polygon.io/vX/reference/ipos?order=desc&limit=10&sort=listing_date&apikey={api_key}"
     try:
-        response = requests.get(f"{base_url}?apikey={api_key}")
-        
-        # Handle unauthorized access
-        if response.status_code == 403:
-            logger.error("403 Forbidden - API key might be invalid or restricted. Check your FMP subscription.")
-            return {"error": "API key is not authorized to access this data."}
-        
-        response.raise_for_status()
-        ipo_data = response.json()
-
-        if not ipo_data:
-            logger.info("No IPO stocks found")
-            return {"error": "No IPO stocks found"}
-
-        for stock in ipo_data:
-            symbol = safe_get(stock, "symbol")
-            company_name = safe_get(stock, "name")
-            stock_exchange = safe_get(stock, "exchange")
-            ipo_price = safe_float(safe_get(stock, "price"))
-            listing_date = safe_get(stock, "date")
-
-            # Append IPO data
+        while base_url:
+            response = requests.get(base_url)
+            if response.status_code == 403:
+                logger.error("403 Forbidden - API key might be invalid or restricted. Check your FMP subscription.")
+                return {"error": "API key is not authorized to access this data."}
+            response_json = response.json()
+            results = response_json.get('results',[])
+            data.extend(results)
+            next_url = response_json.get('next_url')
+            if next_url:
+                base_url = f"{next_url}&apikey={api_key}"
+            else:
+                base_url = None
+        for stock in data:
+            symbol = safe_get(stock, "ticker")
+            company_name = safe_get(stock, "issuer_name")
+            stock_exchange = safe_get(stock, "primary_exchange")
+            ipo_price_lowest = safe_float(safe_get(stock, "lowest_offer_price"))
+            ipo_price_highest = safe_float(safe_get(stock, "highest_offer_price"))
+            listing_date = safe_get(stock,"listing_date")
+            opening_date = safe_get(stock,"announced_date")
+            close_date = safe_get(stock,"issue_end_date")
+            issue_size = safe_get(stock,"total_offer_size")
+            status = safe_get(stock,"ipo_status")
+            currency = safe_get(stock,"currency_code")
             detailed_ipo_list.append({
                 "symbol": symbol,
                 "company_name": company_name,
                 "stock_exchange": stock_exchange,
-                "ipo_price": ipo_price,
-                "listing_date": listing_date,
-            })
+                "ipo_price": f"{ipo_price_lowest}-{ipo_price_highest}",
+                "listing_date": listing_date ,
+                "opening_date":opening_date,
+                "close_date":close_date,
+                "issue_size":issue_size,
+                "status":status,
+                "currency":currency,
 
-            # ✅ Smart rate-limiting: Delay only every 10 requests
-            if len(detailed_ipo_list) % 10 == 0:
-                time.sleep(1)
+            })
+        if len(detailed_ipo_list) % 10 == 0:
+            time.sleep(1)
 
         return {"ipo_calendar": detailed_ipo_list}
-
     except requests.RequestException as e:
         logger.error(f"Failed to fetch IPO stocks: {e}")
-        return {"error": f"Failed to fetch IPO stocks: {str(e)}"}
 
-
+        
 def fetch_stock_price(symbol):
     """Fetch real-time stock price from Twelve Data API with error handling."""
     api_key = settings.API_KEYS.get("TWELVE_DATA")

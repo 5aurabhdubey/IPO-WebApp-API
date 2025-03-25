@@ -6,12 +6,16 @@ from .services import fetch_stock_price, fetch_ipo_calendar, fetch_company_logo
 from .serializers import IPOCalendarSerializer
 from .models import IPO
 from .serializers import IPOSerializer
+from django.shortcuts import render
 
 class IPOCalendarPagination(PageNumberPagination):
     """Custom pagination for IPO Calendar"""
-    page_size = 10  # Default items per page
+    page_size = 12  # Default items per page
     page_size_query_param = 'page_size'
     max_page_size = 50
+
+def ipo_calendar_frontend(request):
+    return render(request, "ipo-listing/index.html")
 
 @api_view(["GET"])
 def stock_price_view(request, symbol):
@@ -25,27 +29,29 @@ def stock_price_view(request, symbol):
 def ipo_calendar_view(request):
     """Fetch, filter, and paginate IPO calendar data"""
     ipo_data = fetch_ipo_calendar().get("ipo_calendar", [])
-    stock_exchange = request.GET.get("stock_exchange")
-    min_price = request.GET.get("min_price")
-    max_price = request.GET.get("max_price")
-    filtered_ipo_data = []
-    for ipo in ipo_data:
-        if stock_exchange and ipo.get("stock_exchange") != stock_exchange:
-            continue
-        try:
-            ipo_price = ipo.get("ipo_price")
-            if min_price and (ipo_price is None or float(ipo_price) < float(min_price)):
-                continue
-            if max_price and (ipo_price is None or float(ipo_price) > float(max_price)):
-                continue
-        except ValueError:
-            return Response({"error": "Invalid price filter value"}, status=status.HTTP_400_BAD_REQUEST)
-        filtered_ipo_data.append(ipo)
-    ipo_data = filtered_ipo_data
     paginator = IPOCalendarPagination()
     paginated_data = paginator.paginate_queryset(ipo_data, request)
     serialized_data = IPOCalendarSerializer(paginated_data, many=True)
     return paginator.get_paginated_response(serialized_data.data)
+    # print(ipo_data)
+    # stock_exchange = request.GET.get("stock_exchange")
+    # min_price = request.GET.get("min_price")
+    # max_price = request.GET.get("max_price")
+    # filtered_ipo_data = []
+    # for ipo in ipo_data:
+    #     if stock_exchange and ipo.get("stock_exchange") != stock_exchange:
+    #         continue
+    #     try:
+    #         ipo_price = ipo.get("ipo_price")
+    #         if min_price and (ipo_price is None or float(ipo_price) < float(min_price)):
+    #             continue
+    #         if max_price and (ipo_price is None or float(ipo_price) > float(max_price)):
+    #             continue
+    #     except ValueError:
+    #         return Response({"error": "Invalid price filter value"}, status=status.HTTP_400_BAD_REQUEST)
+    #     filtered_ipo_data.append(ipo)
+    # ipo_data = filtered_ipo_data
+    # return ipo_data
 
 @api_view(["GET"])
 def company_logo_view(request, company_name):
