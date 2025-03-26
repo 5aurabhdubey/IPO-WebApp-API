@@ -92,4 +92,4 @@ DATABASES = {
 # Static files (CSS, JavaScript, Images)
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR/ 'static']
+STATICFILES_DIRS = [BASE_DIR / "frontend"]

@@ -9,6 +9,7 @@ def main():
     # Use an environment variable to switch between settings dynamically
     settings_module = os.getenv('DJANGO_SETTINGS_MODULE', 'backend.settings')  
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
+    
 
 
 
