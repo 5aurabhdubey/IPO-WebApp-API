@@ -1,7 +1,11 @@
 {
   "dependencies": {
+<<<<<<< HEAD
     "bcrypt": "^5.1.1",
     "dotenv": "^16.4.7",
     "jsonwebtoken": "^9.0.2"
+=======
+    "bootstrap": "^5.3.3"
+>>>>>>> bcb07b7f77cb96eb6a526fce88b049b5bce7bd92
   }
 }
