@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
+import uuid
 
 User = get_user_model()
 
@@ -11,9 +12,10 @@ class AuthTests(TestCase):
         self.signup_url = '/api/auth/signup/'
         self.login_url = '/api/auth/login/'
         self.refresh_url = '/api/auth/token/refresh/'
+        unique_id = str(uuid.uuid4())[:8]
         self.user_data = {
-            'username': 'testuser',
-            'email': 'testuser@example.com',
+            'username': f'testuser_{unique_id}',
+            'email': f'testuser_{unique_id}@example.com',
             'password': 'testpass123'
         }
 

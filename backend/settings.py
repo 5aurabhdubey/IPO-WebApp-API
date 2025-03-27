@@ -8,15 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-abcdefghijklmnopqrstuvwxyz1234567890')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
-
-# API Keys (Securely loaded from .env)
-API_KEYS = {
-    "TWELVE_DATA": os.getenv("TWELVE_DATA_API_KEY", ""),
-    "FMP": os.getenv("FMP_API_KEY", ""),
-    "PLG": os.getenv("PLG_API_KEY", ""),
-    "BRANDFETCH": os.getenv("BRANDFETCH_API_KEY", ""),
-}
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -28,25 +20,16 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'accounts',
-    'backend',
-    'corsheaders',  # Added for frontend CORS support
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # Added for CORS
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
-
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',  # Frontend origins
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -88,15 +71,14 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / "frontend"]  # Added for frontend static files
+STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES': (),  # Allow unauthenticated access by default
+    # Removed DEFAULT_PERMISSION_CLASSES to allow public access by default
 }
 
 AUTH_USER_MODEL = 'accounts.User'
