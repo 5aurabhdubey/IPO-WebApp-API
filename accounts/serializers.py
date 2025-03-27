@@ -9,18 +9,20 @@ class UserSignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password']
+        fields = ['username', 'email', 'password', 'role']
+        extra_kwargs = {'role': {'required': False}}  # Role is optional
 
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
-            password=validated_data['password']
+            password=validated_data['password'],
+            role=validated_data.get('role', 'user')  # Default to 'user'
         )
         return user
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        data['user'] = {'username': self.user.username, 'email': self.user.email}
+        data['user'] = {'username': self.user.username, 'email': self.user.email, 'role': self.user.role}
         return data
