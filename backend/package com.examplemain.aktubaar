@@ -1,0 +1,1359 @@
+package com.example.aktubaar
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Bundle
+import android.view.View
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.*
+import androidx.navigation.navArgument
+import coil.compose.AsyncImage
+import com.google.firebase.FirebaseApp
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
+        uploadNotesToFirebase()
+        setContent {
+            AppNavigation()
+        }
+    }
+}
+
+class MainViewModel(private val context: Context) : ViewModel() {
+    private val _userName = MutableStateFlow<String>("User")
+    val userName: StateFlow<String> = _userName
+
+    private val _email = MutableStateFlow<String>("")
+    val email: StateFlow<String> = _email
+
+    private val _isDarkMode = MutableStateFlow<Boolean>(false)
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode
+
+    init {
+        val sharedPreferences = context.getSharedPreferences("AktuBaarPrefs", Context.MODE_PRIVATE)
+        _userName.value = sharedPreferences.getString("userName", "User") ?: "User"
+        _email.value = sharedPreferences.getString("email", "") ?: ""
+
+        // Check if dark mode preference exists; if not, use system setting
+        val savedDarkMode = sharedPreferences.getBoolean("darkMode", false)
+        val hasDarkModePreference = sharedPreferences.contains("darkMode")
+        val systemDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+        _isDarkMode.value = if (hasDarkModePreference) savedDarkMode else systemDarkMode
+    }
+
+    fun updateProfile(name: String, email: String) {
+        val sharedPreferences = context.getSharedPreferences("AktuBaarPrefs", Context.MODE_PRIVATE)
+        with(sharedPreferences.edit()) {
+            putString("userName", name)
+            putString("email", email)
+            apply()
+        }
+        _userName.value = name
+        _email.value = email
+    }
+
+    fun toggleDarkMode(isDarkMode: Boolean) {
+        val sharedPreferences = context.getSharedPreferences("AktuBaarPrefs", Context.MODE_PRIVATE)
+        with(sharedPreferences.edit()) {
+            putBoolean("darkMode", isDarkMode)
+            apply()
+        }
+        _isDarkMode.value = isDarkMode
+    }
+}
+
+class MainViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return MainViewModel(context) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
+private val LightColorScheme = lightColorScheme(
+    primary = Color(0xFF6200EE),
+    onPrimary = Color.White,
+    secondary = Color(0xFF03DAC6),
+    onSecondary = Color.Black,
+    background = Color(0xFFF5F7FA),
+    onBackground = Color.Black,
+    surface = Color.White,
+    onSurface = Color.Black,
+    error = Color(0xFFB00020),
+    onError = Color.White,
+    surfaceVariant = Color(0xFFE0E0E0),
+    onSurfaceVariant = Color(0xFF444444)
+)
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Color(0xFF00B7EB),
+    onPrimary = Color.Black,
+    secondary = Color(0xFF03DAC6),
+    onSecondary = Color.Black,
+    background = Color(0xFF121212),
+    onBackground = Color.White,
+    surface = Color(0xFF424242),
+    onSurface = Color.White,
+    error = Color(0xFFCF6679),
+    onError = Color.Black
+)
+
+@Composable
+fun AktuBaarTheme(
+    darkTheme: Boolean,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography(),
+        content = content
+    )
+}
+
+@Composable
+fun BottomNavigationBar(navController: NavController) {
+    val currentRoute = navController.currentDestination?.route
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .height(80.dp)
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        val items = listOf(
+            BottomNavItem("Home", Icons.Default.Home, "home"),
+            BottomNavItem("AKTU Info", Icons.Default.Info, "aktu_info"),
+            BottomNavItem("QBank", Icons.Default.QuestionAnswer, "question_bank"),
+            BottomNavItem("Community", Icons.Default.Group, "community")
+        )
+
+        items.forEach { item ->
+            val isSelected = currentRoute == item.route
+            val iconColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                animationSpec = tween(200)
+            )
+            val labelColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                animationSpec = tween(200)
+            )
+            val iconSize by animateDpAsState(
+                targetValue = if (isSelected) 28.dp else 24.dp,
+                animationSpec = tween(200)
+            )
+
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        tint = iconColor,
+                        modifier = Modifier.size(iconSize)
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.label,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = labelColor
+                    )
+                },
+                selected = isSelected,
+                onClick = {
+                    scope.launch {
+                        navController.safeNavigate(item.route, snackbarHostState, scope)
+                    }
+                },
+                modifier = Modifier
+                    .padding(vertical = 8.dp, horizontal = 4.dp)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+                        RoundedCornerShape(12.dp)
+                    )
+            )
+        }
+    }
+}
+
+data class BottomNavItem(val label: String, val icon: ImageVector, val route: String)
+
+data class SliderItem(
+    val type: String = "image",
+    val url: String = "",
+    val title: String = "",
+    val description: String = ""
+)
+
+data class PdfNote(
+    val title: String = "",
+    val semester: Int = 0,
+    val url: String = ""
+)
+
+data class CommunityPost(
+    val id: String = "",
+    val userName: String = "Anonymous",
+    val content: String = "",
+    val timestamp: Long = 0L
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppNavigation() {
+    val context = LocalContext.current
+    val mainViewModel: MainViewModel = viewModel(factory = MainViewModelFactory(context.applicationContext))
+    val navController: NavHostController = rememberNavController()
+    val userName by mainViewModel.userName.collectAsState()
+    val email by mainViewModel.email.collectAsState()
+    val isDarkMode by mainViewModel.isDarkMode.collectAsState()
+    val systemDarkMode = isSystemInDarkTheme()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        if (!mainViewModel.isDarkMode.value) {
+            mainViewModel.toggleDarkMode(systemDarkMode)
+        }
+    }
+
+    AktuBaarTheme(darkTheme = isDarkMode) {
+        ModalNavigationDrawer(
+            drawerContent = {
+                DrawerContent(
+                    navController = navController,
+                    drawerState = drawerState,
+                    userName = userName,
+                    email = email,
+                    isDarkMode = isDarkMode,
+                    onDarkModeToggle = { mainViewModel.toggleDarkMode(!isDarkMode) },
+                    onProfileUpdate = { name, email -> mainViewModel.updateProfile(name, email) },
+                    snackbarHostState = snackbarHostState
+                )
+            },
+            drawerState = drawerState,
+            gesturesEnabled = true,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Scaffold(
+                bottomBar = {
+                    val currentRoute by navController.currentBackStackEntryAsState()
+                    val showBottomNav = currentRoute?.destination?.route in listOf(
+                        "home", "aktu_info", "question_bank", "community", "syllabus",
+                        "feedback", "report_issue", "about", "settings", "profile"
+                    )
+                    if (showBottomNav) BottomNavigationBar(navController)
+                },
+                snackbarHost = { SnackbarHost(snackbarHostState) }
+            ) { paddingValues ->
+                NavHost(
+                    navController = navController,
+                    startDestination = "splash",
+                    modifier = Modifier.padding(paddingValues)
+                ) {
+                    composable("splash") {
+                        SplashScreen(navController) { name ->
+                            mainViewModel.updateProfile(name, mainViewModel.email.value)
+                        }
+                    }
+                    composable("home") {
+                        HomeScreen(navController, userName, email, drawerState, scope)
+                    }
+                    composable("aktu_info") { AktuInfoScreen(navController) }
+                    composable("question_bank") { QuestionBankScreen(navController) }
+                    composable("community") { CommunityScreen(navController) }
+                    composable("about") { AboutScreen(navController) }
+                    composable("settings") {
+                        SettingsScreen(
+                            navController = navController,
+                            userName = userName,
+                            email = email,
+                            mainViewModel = mainViewModel,
+                            onProfileUpdate = { name, email -> mainViewModel.updateProfile(name, email) },
+                            onDarkModeToggle = { mainViewModel.toggleDarkMode(!isDarkMode) }
+                        )
+                    }
+                    composable("feedback") { FeedbackScreen(navController) }
+                    composable("report_issue") { ReportIssueScreen(navController) }
+                    composable("syllabus") { SyllabusScreen(navController) }
+                    composable("profile") {
+                        ProfileScreen(
+                            navController = navController,
+                            initialName = userName,
+                            initialEmail = email,
+                            onProfileUpdated = { name, email -> mainViewModel.updateProfile(name, email) }
+                        )
+                    }
+                    composable(
+                        "semesters/{branch}",
+                        arguments = listOf(navArgument("branch") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val branch = backStackEntry.arguments?.getString("branch") ?: "CSE"
+                        SemesterScreen(branch = branch, navController = navController, userName = userName, email = email)
+                    }
+                    composable(
+                        "subjects/{branch}/{semester}",
+                        arguments = listOf(
+                            navArgument("branch") { type = NavType.StringType },
+                            navArgument("semester") { type = NavType.IntType }
+                        )
+                    ) { backStackEntry ->
+                        val branch = backStackEntry.arguments?.getString("branch") ?: "CSE"
+                        val semester = backStackEntry.arguments?.getInt("semester") ?: 1
+                        SubjectScreen(branch = branch, semester = semester, navController = navController, userName = userName, email = email)
+                    }
+                    composable(
+                        "units/{branch}/{semester}/{subject}",
+                        arguments = listOf(
+                            navArgument("branch") { type = NavType.StringType },
+                            navArgument("semester") { type = NavType.IntType },
+                            navArgument("subject") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val branch = backStackEntry.arguments?.getString("branch") ?: "CSE"
+                        val semester = backStackEntry.arguments?.getInt("semester") ?: 1
+                        val subject = backStackEntry.arguments?.getString("subject") ?: ""
+                        UnitScreen(branch = branch, semester = semester, subject = subject, navController = navController, userName = userName, email = email)
+                    }
+                    composable(
+                        "qb_semesters/{branch}",
+                        arguments = listOf(navArgument("branch") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val branch = backStackEntry.arguments?.getString("branch") ?: "CSE"
+                        QuestionBankSemesterScreen(branch = branch, navController = navController, userName = userName, email = email)
+                    }
+                    composable(
+                        "qb_units/{branch}/{semester}",
+                        arguments = listOf(
+                            navArgument("branch") { type = NavType.StringType },
+                            navArgument("semester") { type = NavType.IntType }
+                        )
+                    ) { backStackEntry ->
+                        val branch = backStackEntry.arguments?.getString("branch") ?: "CSE"
+                        val semester = backStackEntry.arguments?.getInt("semester") ?: 1
+                        QuestionBankUnitsScreen(branch = branch, semester = semester, navController = navController, userName = userName, email = email)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AboutScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val mainViewModel: MainViewModel = viewModel(factory = MainViewModelFactory(context.applicationContext))
+    val isDarkMode by mainViewModel.isDarkMode.collectAsState()
+
+    AktuBaarTheme(darkTheme = isDarkMode) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("About", color = MaterialTheme.colorScheme.onPrimary) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.navigateUp() }) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            },
+            snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "About AktuBaar",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    "Version 1.0",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://5aurabhdubey.github.io/aktubaar-privacy-policy/"))
+                    context.startActivity(intent)
+                }) {
+                    Text(
+                        "Privacy Policy",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommunityScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val mainViewModel: MainViewModel = viewModel(factory = MainViewModelFactory(context.applicationContext))
+    val isDarkMode by mainViewModel.isDarkMode.collectAsState()
+    val userName by mainViewModel.userName.collectAsState()
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    var posts by remember { mutableStateOf(listOf<CommunityPost>()) }
+    var newPostText by remember { mutableStateOf("") }
+    val firestore = FirebaseFirestore.getInstance()
+    val postsCollection = firestore.collection("community_posts")
+
+    LaunchedEffect(Unit) {
+        postsCollection.orderBy("timestamp", Query.Direction.DESCENDING).limit(50)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    scope.launch { snackbarHostState.showSnackbar("Error loading posts: ${e.message}") }
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    posts = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(CommunityPost::class.java)?.copy(id = doc.id)
+                    }
+                }
+            }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Community", color = MaterialTheme.colorScheme.onPrimary) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    OutlinedTextField(
+                        value = newPostText,
+                        onValueChange = { newPostText = it },
+                        label = { Text("Share something...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            if (newPostText.isNotBlank()) {
+                                val post = CommunityPost(
+                                    userName = userName,
+                                    content = newPostText,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                                postsCollection.add(post)
+                                    .addOnSuccessListener {
+                                        newPostText = ""
+                                        scope.launch { snackbarHostState.showSnackbar("Post added!") }
+                                    }
+                                    .addOnFailureListener { e ->
+                                        scope.launch { snackbarHostState.showSnackbar("Error: ${e.message}") }
+                                    }
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Post", color = Color.White)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(posts) { post ->
+                    CommunityPostItem(post = post)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityPostItem(post: CommunityPost) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = post.userName,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = SimpleDateFormat("MMM dd, HH:mm").format(Date(post.timestamp)),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = post.content,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AktuInfoScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val mainViewModel: MainViewModel = viewModel(factory = MainViewModelFactory(context.applicationContext))
+    val isDarkMode by mainViewModel.isDarkMode.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var hasError by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("AKTU Info", color = MaterialTheme.colorScheme.onPrimary) },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        if (webView?.canGoBack() == true) {
+                            webView?.goBack()
+                        } else {
+                            navController.navigateUp()
+                        }
+                    }) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            AndroidView(
+                factory = {
+                    WebView(context).apply {
+                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                        settings.apply {
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            loadWithOverviewMode = true
+                            useWideViewPort = true
+                            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            setSupportZoom(true)
+                            builtInZoomControls = true
+                            displayZoomControls = false
+                            databaseEnabled = true
+                            allowFileAccess = true
+                            allowContentAccess = true
+                        }
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                isLoading = true
+                                hasError = false
+                            }
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                isLoading = false
+                            }
+                            override fun onReceivedError(
+                                view: WebView?,
+                                request: WebResourceRequest?,
+                                error: WebResourceError?
+                            ) {
+                                isLoading = false
+                                hasError = true
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Failed to load page: ${error?.description}")
+                                }
+                            }
+                        }
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                if (newProgress == 100) {
+                                    isLoading = false
+                                }
+                            }
+                        }
+                        loadUrl("https://aktu.ac.in/")
+                        webView = this
+                    }
+                },
+                update = { wv ->
+                    webView = wv
+                    if (hasError) {
+                        wv.reload()
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.8f))
+                        .align(Alignment.Center)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            if (hasError) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Failed to load the AKTU website.",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            hasError = false
+                            isLoading = true
+                            webView?.reload()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("Retry")
+                    }
+                }
+            }
+        }
+
+        BackHandler(enabled = true) {
+            if (webView?.canGoBack() == true) {
+                webView?.goBack()
+            } else {
+                navController.navigateUp()
+            }
+        }
+    }
+
+    if (!isNetworkAvailable(context)) {
+        LaunchedEffect(Unit) {
+            scope.launch {
+                snackbarHostState.showSnackbar("No internet connection. Please check your network.")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    navController: NavHostController,
+    userName: String,
+    email: String,
+    mainViewModel: MainViewModel,
+    onProfileUpdate: (String, String) -> Unit,
+    onDarkModeToggle: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val isDarkMode by mainViewModel.isDarkMode.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        "Settings",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Profile",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        IconButton(onClick = { navController.navigate("profile") }) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit Profile",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    Text(
+                        "Name: $userName",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Email: $email",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Appearance",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Dark Mode",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        DarkModeSwitch(isDarkMode = isDarkMode, onToggle = onDarkModeToggle)
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "About",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    TextButton(
+                        onClick = { navController.navigate("about") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("About AktuBaar", fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileScreen(
+    navController: NavHostController,
+    initialName: String,
+    initialEmail: String,
+    onProfileUpdated: (String, String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var email by remember { mutableStateOf(initialEmail) }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("AktuBaarPrefs", Context.MODE_PRIVATE)
+    val isDarkMode by remember { mutableStateOf(sharedPreferences.getBoolean("darkMode", false)) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profile", color = if (isDarkMode) Color.White else MaterialTheme.colorScheme.onSurface) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = if (isDarkMode) Color.White else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (isDarkMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                )
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (isDarkMode) Color(0xFF1A1A1A) else Color(0xFFF5F7FA))
+                .padding(paddingValues)
+                .padding(horizontal = 24.dp, vertical = 32.dp)
+                .background(if (isDarkMode) Color(0xFF2E2E2E) else MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .background(if (isDarkMode) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.secondary, CircleShape)
+            ) {
+                AsyncImage(
+                    model = "https://img.freepik.com/premium-vector/avatar-profile-icon-flat-style-male-user-profile-vector-illustration-isolated-background-man-profile-sign-business-concept_157943-38764.jpg",
+                    contentDescription = "Profile Image",
+                    modifier = Modifier
+                        .size(100.dp)
+                        .align(Alignment.Center)
+                        .clip(CircleShape)
+                )
+            }
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name", color = if (isDarkMode) Color.White else MaterialTheme.colorScheme.onSurface) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(if (isDarkMode) Color(0xFF2E2E2E) else MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)),
+                textStyle = TextStyle(color = if (isDarkMode) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                ),
+                isError = name.isBlank(),
+                supportingText = {
+                    if (name.isBlank()) {
+                        Text("Name cannot be empty", color = if (isDarkMode) Color.Red.copy(alpha = 0.7f) else MaterialTheme.colorScheme.error)
+                    }
+                }
+            )
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email", color = if (isDarkMode) Color.White else MaterialTheme.colorScheme.onSurface) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(if (isDarkMode) Color(0xFF2E2E2E) else MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)),
+                textStyle = TextStyle(color = if (isDarkMode) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                ),
+                isError = email.isNotEmpty() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches(),
+                supportingText = {
+                    if (email.isNotEmpty() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                        Text("Enter a valid email", color = if (isDarkMode) Color.Red.copy(alpha = 0.7f) else MaterialTheme.colorScheme.error)
+                    }
+                }
+            )
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        if (name.isNotBlank() && (email.isEmpty() || android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches())) {
+                            onProfileUpdated(name, email)
+                            navController.navigateUp()
+                            snackbarHostState.showSnackbar("Profile updated successfully")
+                        } else {
+                            snackbarHostState.showSnackbar("Please fix the errors in the form")
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = "Save", Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Save", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+@Composable
+fun DarkModeSwitch(isDarkMode: Boolean, onToggle: () -> Unit) {
+    val thumbColor by animateColorAsState(
+        targetValue = if (isDarkMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+        animationSpec = tween(durationMillis = 300)
+    )
+    val trackColor by animateColorAsState(
+        targetValue = if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+        animationSpec = tween(durationMillis = 300)
+    )
+    val thumbSize by animateDpAsState(targetValue = if (isDarkMode) 20.dp else 16.dp, animationSpec = tween(durationMillis = 300))
+
+    Switch(
+        checked = isDarkMode,
+        onCheckedChange = { onToggle() },
+        thumbContent = {
+            Box(
+                modifier = Modifier
+                    .size(thumbSize)
+                    .background(thumbColor, CircleShape)
+            )
+        },
+        colors = SwitchDefaults.colors(
+            checkedTrackColor = trackColor,
+            uncheckedTrackColor = trackColor,
+            checkedThumbColor = thumbColor,
+            uncheckedThumbColor = thumbColor
+        ),
+        modifier = Modifier.padding(4.dp)
+    )
+}
+
+fun NavController.safeNavigate(route: String, snackbarHostState: SnackbarHostState, scope: CoroutineScope) {
+    try {
+        navigate(route)
+    } catch (e: IllegalArgumentException) {
+        scope.launch {
+            snackbarHostState.showSnackbar("Navigation failed: Invalid route - $route")
+        }
+    } catch (e: IllegalStateException) {
+        scope.launch {
+            snackbarHostState.showSnackbar("Navigation failed: State error")
+        }
+    } catch (e: Exception) {
+        scope.launch {
+            snackbarHostState.showSnackbar("Unexpected navigation error occurred")
+        }
+    }
+}
+
+private fun uploadNotesToFirebase() {
+    val firestore = FirebaseFirestore.getInstance()
+    val database = FirebaseDatabase.getInstance().reference
+    val notesRef = database.child("branchSemesterSubjectNotes")
+    val qbRef = database.child("branchSemesterQuestionBanks")
+    val subjectsRef = database.child("branchSemesterSubjects")
+    val sliderRef = firestore.collection("sliderItems")
+
+    // Clear existing slider items to avoid duplicates (optional, comment out if not desired)
+    sliderRef.get().addOnSuccessListener { snapshot ->
+        snapshot.documents.forEach { it.reference.delete() }
+        val sliderItems = listOf(
+            SliderItem(
+                type = "image",
+                url = "https://aktu.ac.in/images/1686728928.png",
+                title = "AKTU Updates",
+                description = "Latest news from AKTU."
+            ),
+            SliderItem(
+                type = "video",
+                url = "https://ia801504.us.archive.org/33/items/MIT6.00SCS11/MIT6_00SCS11_lec01_300k.mp4",
+                title = "Learn Programming",
+                description = "Free MIT course video."
+            ),
+            SliderItem(
+                type = "image",
+                url = "https://www.khanacademy.org/images/khan-logo-dark-background-new.svg",
+                title = "Khan Academy",
+                description = "Free educational resources."
+            )
+        )
+
+        sliderItems.forEach { item ->
+            sliderRef.document().set(item)
+                .addOnSuccessListener { println("Slider item uploaded: ${item.title}") }
+                .addOnFailureListener { e -> println("Error uploading slider item: ${e.message}") }
+        }
+    }
+
+    // Populate branchSemesterSubjects for each branch and semester
+    subjectsRef.child("CSE").child("1").setValue(listOf("Programming", "Data Structures", "Algorithms"))
+    subjectsRef.child("CSE").child("2").setValue(listOf("Programming"))
+    subjectsRef.child("CSE").child("3").setValue(listOf("Operating Systems", "Database Systems"))
+    subjectsRef.child("CSE").child("4").setValue(listOf("Computer Networks", "Software Engineering"))
+    subjectsRef.child("CSE").child("5").setValue(listOf("Artificial Intelligence", "Compiler Design"))
+    subjectsRef.child("CSE").child("6").setValue(listOf("Machine Learning", "Cyber Security"))
+    subjectsRef.child("CSE").child("7").setValue(listOf("Big Data", "Cloud Computing"))
+    subjectsRef.child("CSE").child("8").setValue(listOf("Project Management", "Advanced Algorithms"))
+
+    subjectsRef.child("Textile").child("1").setValue(listOf("Textile Basics", "Weaving"))
+    subjectsRef.child("Textile").child("2").setValue(listOf("Dyeing"))
+    subjectsRef.child("Textile").child("3").setValue(listOf("Textile Chemistry", "Spinning"))
+    subjectsRef.child("Textile").child("4").setValue(listOf("Knitting", "Textile Testing"))
+    subjectsRef.child("Textile").child("5").setValue(listOf("Fabric Design", "Quality Control"))
+    subjectsRef.child("Textile").child("6").setValue(listOf("Textile Machinery", "Nonwoven Fabrics"))
+    subjectsRef.child("Textile").child("7").setValue(listOf("Textile Marketing", "Sustainability"))
+    subjectsRef.child("Textile").child("8").setValue(listOf("Advanced Textiles", "Textile Project"))
+
+    subjectsRef.child("Electronics").child("1").setValue(listOf("Circuit Theory", "Digital Electronics"))
+    subjectsRef.child("Electronics").child("2").setValue(listOf("Analog Electronics"))
+    subjectsRef.child("Electronics").child("3").setValue(listOf("Microprocessors", "Signals and Systems"))
+    subjectsRef.child("Electronics").child("4").setValue(listOf("Communication Systems", "Control Systems"))
+    subjectsRef.child("Electronics").child("5").setValue(listOf("VLSI Design", "Embedded Systems"))
+    subjectsRef.child("Electronics").child("6").setValue(listOf("Digital Signal Processing", "Antenna Design"))
+    subjectsRef.child("Electronics").child("7").setValue(listOf("IoT", "Power Electronics"))
+    subjectsRef.child("Electronics").child("8").setValue(listOf("Robotics", "Electronics Project"))
+
+    subjectsRef.child("Mechanical").child("1").setValue(listOf("Thermodynamics", "Mechanics"))
+    subjectsRef.child("Mechanical").child("2").setValue(listOf("Fluid Mechanics"))
+    subjectsRef.child("Mechanical").child("3").setValue(listOf("Strength of Materials", "Manufacturing Processes"))
+    subjectsRef.child("Mechanical").child("4").setValue(listOf("Machine Design", "Heat Transfer"))
+    subjectsRef.child("Mechanical").child("5").setValue(listOf("Automobile Engineering", "CAD/CAM"))
+    subjectsRef.child("Mechanical").child("6").setValue(listOf("Robotics", "Industrial Engineering"))
+    subjectsRef.child("Mechanical").child("7").setValue(listOf("Renewable Energy", "Finite Element Analysis"))
+    subjectsRef.child("Mechanical").child("8").setValue(listOf("Mechanical Project", "Production Management"))
+
+    subjectsRef.child("Electrical").child("1").setValue(listOf("Electrical Circuits", "Power Systems"))
+    subjectsRef.child("Electrical").child("2").setValue(listOf("Electromagnetic Fields"))
+    subjectsRef.child("Electrical").child("3").setValue(listOf("Electrical Machines", "Control Systems"))
+    subjectsRef.child("Electrical").child("4").setValue(listOf("Power Electronics", "Measurement Systems"))
+    subjectsRef.child("Electrical").child("5").setValue(listOf("High Voltage Engineering", "Digital Control"))
+    subjectsRef.child("Electrical").child("6").setValue(listOf("Renewable Energy Systems", "Smart Grids"))
+    subjectsRef.child("Electrical").child("7").setValue(listOf("Electric Drives", "Power Quality"))
+    subjectsRef.child("Electrical").child("8").setValue(listOf("Electrical Project", "Energy Management"))
+
+    subjectsRef.child("AIML").child("1").setValue(listOf("Machine Learning", "AI Basics"))
+    subjectsRef.child("AIML").child("2").setValue(listOf("Data Science"))
+    subjectsRef.child("AIML").child("3").setValue(listOf("Deep Learning", "Statistics"))
+    subjectsRef.child("AIML").child("4").setValue(listOf("Natural Language Processing", "Computer Vision"))
+    subjectsRef.child("AIML").child("5").setValue(listOf("Reinforcement Learning", "Ethics in AI"))
+    subjectsRef.child("AIML").child("6").setValue(listOf("Big Data Analytics", "AI in Robotics"))
+    subjectsRef.child("AIML").child("7").setValue(listOf("AI Deployment", "Generative Models"))
+    subjectsRef.child("AIML").child("8").setValue(listOf("AI Project", "Advanced AI Applications"))
+
+    // CSE Branch
+    val cseSem1Programming = listOf(
+        PdfNote("Unit 1 - Intro to Programming", 1, "https://drive.google.com/uc?export=download&id=1LwDSXPJ_dHlPr8hYKXSX1P-5X-kVoFap"),
+        PdfNote("Unit 2 - Variables", 1, "https://drive.google.com/uc?export=download&id=1LwDSXPJ_dHlPr8hYKXSX1P-5X-kVoFap"),
+        PdfNote("Unit 3 - Control Structures", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("CSE").child("1").child("Programming").setValue(cseSem1Programming)
+
+    val cseSem1DataStructures = listOf(
+        PdfNote("Unit 1 - Arrays Basics", 1, "https://drive.google.com/uc?export=download&id=1_17Dj5A60fcE0ilRI13TvQ9-t03zuYfX"),
+        PdfNote("Unit 2 - Stacks", 1, "https://drive.google.com/uc?export=download&id=1_17Dj5A60fcE0ilRI13TvQ9-t03zuYfX"),
+        PdfNote("Unit 3 - Queues", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("CSE").child("1").child("Data Structures").setValue(cseSem1DataStructures)
+
+    val cseSem1Algorithms = listOf(
+        PdfNote("Unit 1 - Sorting Basics", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Searching", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("CSE").child("1").child("Algorithms").setValue(cseSem1Algorithms)
+
+    val cseSem1QB = listOf(
+        PdfNote("Question Bank 1 - Programming", 1, "YOUR_QB_URL_HERE"),
+        PdfNote("Question Bank 2 - Data Structures", 1, "YOUR_QB_URL_HERE"),
+        PdfNote("Question Bank 3 - Algorithms", 1, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("CSE").child("1").setValue(cseSem1QB)
+
+    val cseSem2Programming = listOf(
+        PdfNote("Unit 1 - Functions", 2, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Pointers", 2, "YOUR_URL_HERE")
+    )
+    notesRef.child("CSE").child("2").child("Programming").setValue(cseSem2Programming)
+
+    val cseSem2QB = listOf(
+        PdfNote("Question Bank 1 - Programming", 2, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("CSE").child("2").setValue(cseSem2QB)
+
+    // Textile Branch
+    val textileSem1Basics = listOf(
+        PdfNote("Unit 1 - Fiber Intro", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Yarn Basics", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Textile").child("1").child("Textile Basics").setValue(textileSem1Basics)
+
+    val textileSem1Weaving = listOf(
+        PdfNote("Unit 1 - Loom Types", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Weaving Techniques", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Textile").child("1").child("Weaving").setValue(textileSem1Weaving)
+
+    val textileSem1QB = listOf(
+        PdfNote("Question Bank 1 - Textile Basics", 1, "YOUR_QB_URL_HERE"),
+        PdfNote("Question Bank 2 - Weaving", 1, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("Textile").child("1").setValue(textileSem1QB)
+
+    val textileSem2Dyeing = listOf(
+        PdfNote("Unit 1 - Dye Types", 2, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Dyeing Process", 2, "YOUR_URL_HERE")
+    )
+    notesRef.child("Textile").child("2").child("Dyeing").setValue(textileSem2Dyeing)
+
+    val textileSem2QB = listOf(
+        PdfNote("Question Bank 1 - Dyeing", 2, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("Textile").child("2").setValue(textileSem2QB)
+
+    // Electronics Branch
+    val electronicsSem1Circuit = listOf(
+        PdfNote("Unit 1 - Ohm's Law", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Kirchhoff's Laws", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Electronics").child("1").child("Circuit Theory").setValue(electronicsSem1Circuit)
+
+    val electronicsSem1Digital = listOf(
+        PdfNote("Unit 1 - Logic Gates", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Flip Flops", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Electronics").child("1").child("Digital Electronics").setValue(electronicsSem1Digital)
+
+    val electronicsSem1QB = listOf(
+        PdfNote("Question Bank 1 - Circuit Theory", 1, "YOUR_QB_URL_HERE"),
+        PdfNote("Question Bank 2 - Digital Electronics", 1, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("Electronics").child("1").setValue(electronicsSem1QB)
+
+    // Mechanical Branch
+    val mechanicalSem1Thermo = listOf(
+        PdfNote("Unit 1 - Thermodynamics Laws", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Heat Transfer", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Mechanical").child("1").child("Thermodynamics").setValue(mechanicalSem1Thermo)
+
+    val mechanicalSem1Mechanics = listOf(
+        PdfNote("Unit 1 - Forces", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Motion", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Mechanical").child("1").child("Mechanics").setValue(mechanicalSem1Mechanics)
+
+    val mechanicalSem1QB = listOf(
+        PdfNote("Question Bank 1 - Thermodynamics", 1, "YOUR_QB_URL_HERE"),
+        PdfNote("Question Bank 2 - Mechanics", 1, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("Mechanical").child("1").setValue(mechanicalSem1QB)
+
+    // Electrical Branch
+    val electricalSem1Circuits = listOf(
+        PdfNote("Unit 1 - AC Circuits", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - DC Circuits", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Electrical").child("1").child("Electrical Circuits").setValue(electricalSem1Circuits)
+
+    val electricalSem1Power = listOf(
+        PdfNote("Unit 1 - Power Generation", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Transformers", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("Electrical").child("1").child("Power Systems").setValue(electricalSem1Power)
+
+    val electricalSem1QB = listOf(
+        PdfNote("Question Bank 1 - Electrical Circuits", 1, "YOUR_QB_URL_HERE"),
+        PdfNote("Question Bank 2 - Power Systems", 1, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("Electrical").child("1").setValue(electricalSem1QB)
+
+    // AIML Branch
+    val aimlSem1ML = listOf(
+        PdfNote("Unit 1 - Supervised Learning", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Unsupervised Learning", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("AIML").child("1").child("Machine Learning").setValue(aimlSem1ML)
+
+    val aimlSem1AI = listOf(
+        PdfNote("Unit 1 - AI Intro", 1, "YOUR_URL_HERE"),
+        PdfNote("Unit 2 - Search Algorithms", 1, "YOUR_URL_HERE")
+    )
+    notesRef.child("AIML").child("1").child("AI Basics").setValue(aimlSem1AI)
+
+    val aimlSem1QB = listOf(
+        PdfNote("Question Bank 1 - Machine Learning", 1, "YOUR_QB_URL_HERE"),
+        PdfNote("Question Bank 2 - AI Basics", 1, "YOUR_QB_URL_HERE")
+    )
+    qbRef.child("AIML").child("1").setValue(aimlSem1QB)
+}
+
